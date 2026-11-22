@@ -1,0 +1,67 @@
+name: Build OpenWrt 25.12 APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  OPENWRT_REF: openwrt-25.12
+  PACKAGE_NAME: luci-app-device-gateway
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout plugin
+        uses: actions/checkout@v4
+
+      - name: Checkout OpenWrt 25.12
+        uses: actions/checkout@v4
+        with:
+          repository: openwrt/openwrt
+          ref: ${{ env.OPENWRT_REF }}
+          path: openwrt
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Prepare feeds and package
+        working-directory: openwrt
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          mkdir -p package/${PACKAGE_NAME}
+          cp -a ../Makefile ../root ../htdocs package/${PACKAGE_NAME}/
+          echo "CONFIG_PACKAGE_${PACKAGE_NAME}=m" >> .config
+          make defconfig
+
+      - name: Build package
+        working-directory: openwrt
+        run: |
+          make package/${PACKAGE_NAME}/compile V=s
+          mkdir -p ../dist
+          find bin/packages -type f \( -name "${PACKAGE_NAME}_*.apk" -o -name "${PACKAGE_NAME}_*.ipk" \) -print -exec cp -v {} ../dist/ \;
+          test -n "$(find ../dist -type f -name "${PACKAGE_NAME}_*.apk" -print -quit)"
+
+      - name: Inspect APK metadata
+        run: |
+          file dist/${PACKAGE_NAME}_*.apk
+          sha256sum dist/${PACKAGE_NAME}_*.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-device-gateway-openwrt-25.12
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*.apk
