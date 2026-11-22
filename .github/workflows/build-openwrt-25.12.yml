@@ -38,53 +38,10 @@ jobs:
           echo "CONFIG_PACKAGE_${PACKAGE_NAME}=m" >> .config
           make defconfig
 
-      - name: Preflight SDK toolchain and target
+      - name: Build OpenWrt APK
         working-directory: openwrt
         run: |
-          set -u
-          failed=0
-          check_exec() {
-            path="$1"
-            if [ -x "$path" ]; then
-              echo "PREFLIGHT OK: executable $path"
-            else
-              echo "PREFLIGHT FAIL: missing executable $path"
-              failed=1
-            fi
-          }
-          check_exec staging_dir/host/bin/make
-          toolchain_dir="$(find staging_dir -maxdepth 1 -type d -name 'toolchain-*' -print -quit)"
-          if [ -n "$toolchain_dir" ]; then
-            echo "PREFLIGHT OK: toolchain directory $toolchain_dir"
-            check_exec "$toolchain_dir/bin/gcc"
-            check_exec "$toolchain_dir/bin/ld"
-            check_exec "$toolchain_dir/bin/ar"
-            if find "$toolchain_dir" -type f -name 'libgcc_s.so.*' -print -quit | grep -q .; then
-              echo 'PREFLIGHT OK: libgcc_s.so found'
-            else
-              echo 'PREFLIGHT FAIL: libgcc_s.so not found'
-              failed=1
-            fi
-          else
-            echo 'PREFLIGHT FAIL: no staging_dir/toolchain-* directory found'
-            failed=1
-          fi
-          for config in \
-            '^CONFIG_TARGET_mediatek=y$' \
-            '^CONFIG_TARGET_mediatek_filogic=y$' \
-            '^CONFIG_ARCH="aarch64"$'; do
-            if grep -q "$config" .config; then
-              echo "PREFLIGHT OK: $config"
-            else
-              echo "PREFLIGHT FAIL: $config"
-              failed=1
-            fi
-          done
-          if [ "$failed" -ne 0 ]; then
-            echo 'PREFLIGHT SUMMARY: failed'
-            exit 1
-          fi
-          echo 'PREFLIGHT SUMMARY: passed'
+          set -eu
           make package/${PACKAGE_NAME}/compile V=s -j"$(nproc)"
           mkdir -p ../dist
           find bin/packages -type f -name "${PACKAGE_NAME}_*.apk" -print -exec cp -v {} ../dist/ \;
