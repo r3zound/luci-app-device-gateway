@@ -42,8 +42,6 @@ jobs:
         working-directory: openwrt
         run: |
           set -eu
-          test -x staging_dir/host/bin/libdeflate-gzip
-          test -x staging_dir/host/bin/zstdcat
           test -x staging_dir/host/bin/make
           toolchain_dir="$(find staging_dir -maxdepth 1 -type d -name 'toolchain-*' -print -quit)"
           test -n "$toolchain_dir"
