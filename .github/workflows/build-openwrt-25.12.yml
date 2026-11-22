@@ -39,6 +39,11 @@ jobs:
           echo "CONFIG_PACKAGE_${PACKAGE_NAME}=m" >> .config
           make defconfig
 
+      - name: Build OpenWrt host tools
+        working-directory: openwrt
+        run: |
+          make tools/install V=s -j$(nproc)
+
       - name: Build package
         working-directory: openwrt
         run: |
