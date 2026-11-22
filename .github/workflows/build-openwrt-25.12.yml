@@ -1,4 +1,4 @@
-name: Build OpenWrt 25.12 APK
+name: Build OpenWrt 25.12 APK and legacy IPK
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  OPENWRT_REF: openwrt-25.12
+  SDK_URL: https://downloads.openwrt.org/releases/25.12.0/targets/mediatek/filogic/openwrt-sdk-25.12.0-mediatek-filogic_gcc-14.3.0_musl.Linux-x86_64.tar.zst
   PACKAGE_NAME: luci-app-device-gateway
 
 jobs:
@@ -20,53 +20,76 @@ jobs:
       - name: Checkout plugin
         uses: actions/checkout@v4
 
-      - name: Checkout OpenWrt 25.12
-        uses: actions/checkout@v4
-        with:
-          repository: openwrt/openwrt
-          ref: ${{ env.OPENWRT_REF }}
-          path: openwrt
-          submodules: recursive
-          fetch-depth: 1
+      - name: Download official OpenWrt 25.12 SDK
+        run: |
+          curl --fail --location --retry 3 --retry-delay 5 \
+            "$SDK_URL" -o openwrt-sdk.tar.zst
+          mkdir openwrt
+          tar --use-compress-program=unzstd -xf openwrt-sdk.tar.zst -C openwrt --strip-components=1
+          rm -f openwrt-sdk.tar.zst
 
       - name: Prepare feeds and package
         working-directory: openwrt
         run: |
-          ./scripts/feeds update -a
+          ./scripts/feeds update luci
           ./scripts/feeds install -a
-          mkdir -p package/${PACKAGE_NAME}
-          cp -a ../Makefile ../root ../htdocs package/${PACKAGE_NAME}/
+          mkdir -p "package/${PACKAGE_NAME}"
+          cp -a ../Makefile ../root ../htdocs "package/${PACKAGE_NAME}/"
           echo "CONFIG_PACKAGE_${PACKAGE_NAME}=m" >> .config
           make defconfig
 
-      - name: Build OpenWrt host tools
+      - name: Preflight SDK toolchain and target
         working-directory: openwrt
         run: |
-          make tools/install V=s -j$(nproc)
-
-      - name: Build OpenWrt target toolchain
-        working-directory: openwrt
-        run: |
-          make toolchain/install V=s -j$(nproc)
-
-      - name: Build package
-        working-directory: openwrt
-        run: |
-          make package/${PACKAGE_NAME}/compile V=s
+          set -eu
+          test -x staging_dir/host/bin/libdeflate-gzip
+          test -x staging_dir/host/bin/zstdcat
+          test -x staging_dir/host/bin/make
+          toolchain_dir="$(find staging_dir -maxdepth 1 -type d -name 'toolchain-*' -print -quit)"
+          test -n "$toolchain_dir"
+          test -x "$toolchain_dir/bin/gcc"
+          test -x "$toolchain_dir/bin/ld"
+          test -x "$toolchain_dir/bin/ar"
+          test -n "$(find "$toolchain_dir" -type f -name 'libgcc_s.so.*' -print -quit)"
+          grep -q '^CONFIG_TARGET_mediatek=y$' .config
+          grep -q '^CONFIG_TARGET_mediatek_filogic=y$' .config
+          grep -q '^CONFIG_ARCH="aarch64"$' .config
+          make package/${PACKAGE_NAME}/compile V=s -j"$(nproc)"
           mkdir -p ../dist
-          find bin/packages -type f \( -name "${PACKAGE_NAME}_*.apk" -o -name "${PACKAGE_NAME}_*.ipk" \) -print -exec cp -v {} ../dist/ \;
+          find bin/packages -type f -name "${PACKAGE_NAME}_*.apk" -print -exec cp -v {} ../dist/ \;
           test -n "$(find ../dist -type f -name "${PACKAGE_NAME}_*.apk" -print -quit)"
 
-      - name: Inspect APK metadata
+      - name: Build legacy IPK
         run: |
-          file dist/${PACKAGE_NAME}_*.apk
-          sha256sum dist/${PACKAGE_NAME}_*.apk
+          sh build-ipk.sh dist
 
-      - name: Upload artifact
+      - name: Inspect and validate package metadata
+        run: |
+          set -eu
+          apk="$(find dist -maxdepth 1 -type f -name "${PACKAGE_NAME}_*.apk" -print -quit)"
+          ipk="$(find dist -maxdepth 1 -type f -name "${PACKAGE_NAME}_*.ipk" -print -quit)"
+          test -n "$apk"
+          test -n "$ipk"
+          file "$apk" "$ipk"
+          sha256sum "$apk" "$ipk"
+          apk_control="$(mktemp -d)"
+          tar -tzf "$apk" | grep -Eq '(^|/)\.PKGINFO$'
+          tar -tzf "$apk" | grep -Eq '(^|/)\.INSTALL$|(^|/)\.POST-INSTALL$|(^|/)\.POST-UPGRADE$|(^|/)\.TRIGGERS$' || true
+          ipk_control="$(mktemp -d)"
+          tar -xOzf "$ipk" ./control.tar.gz | tar -xzf - -C "$ipk_control"
+          grep -q '^Package: luci-app-device-gateway$' "$ipk_control/control"
+          grep -q '^Version: 1.0.1-1$' "$ipk_control/control"
+          grep -q '^Architecture: all$' "$ipk_control/control"
+          grep -q '^Depends: luci-base, flock$' "$ipk_control/control"
+          tar -tzf "$ipk" | grep -qx './debian-binary'
+          tar -tzf "$ipk" | grep -qx './data.tar.gz'
+          tar -tzf "$ipk" | grep -qx './control.tar.gz'
+
+      - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
-          name: luci-app-device-gateway-openwrt-25.12
-          path: dist/*.apk
+          name: luci-app-device-gateway-packages
+          path: dist/*
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -74,4 +97,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: dist/*.apk
+          files: dist/*

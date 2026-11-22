@@ -2,7 +2,7 @@
 set -eu
 
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-VERSION='1.0.0-r1'
+VERSION='1.0.1-1'
 OUTDIR="${1:-$ROOT/dist}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT INT TERM
@@ -18,7 +18,7 @@ Package: luci-app-device-gateway
 Version: $VERSION
 Architecture: all
 Maintainer: huladabang
-Depends: luci-base
+Depends: luci-base, flock
 Section: luci
 Priority: optional
 Description: Per-device static IPv4, gateway and DNS settings for dnsmasq
@@ -51,18 +51,19 @@ chmod 0755 "$WORK/control/postinst" "$WORK/control/prerm"
 
 printf '2.0\n' > "$WORK/debian-binary"
 
-(cd "$WORK/control" && COPYFILE_DISABLE=1 tar --format=ustar \
-	--uid 0 --gid 0 --uname root --gname root -czf "$WORK/control.tar.gz" .)
-(cd "$WORK/data" && COPYFILE_DISABLE=1 tar --format=ustar \
-	--uid 0 --gid 0 --uname root --gname root -czf "$WORK/data.tar.gz" .)
+export COPYFILE_DISABLE=1
+old_dir=$(pwd)
+cd "$WORK/control"
+tar --format=ustar -czf "$WORK/control.tar.gz" .
+cd "$WORK/data"
+tar --format=ustar -czf "$WORK/data.tar.gz" .
+cd "$old_dir"
 
 PKG="$OUTDIR/luci-app-device-gateway_${VERSION}_all.ipk"
 rm -f "$PKG"
 
 # OpenWrt 24.10 uses the ipkg tar-stream format: a gzip-compressed outer tar
 # containing these three members. This is the format accepted by its opkg.
-COPYFILE_DISABLE=1 tar --format=ustar \
-	--uid 0 --gid 0 --uname root --gname root -czf "$PKG" -C "$WORK" \
-	./debian-binary ./data.tar.gz ./control.tar.gz
+tar --format=ustar -czf "$PKG" -C "$WORK" ./debian-binary ./data.tar.gz ./control.tar.gz
 printf '%s\n' "$PKG"
 

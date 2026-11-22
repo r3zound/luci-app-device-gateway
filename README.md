@@ -57,10 +57,10 @@ opkg install /tmp/luci-app-device-gateway_*.ipk
 
 ## 安装与使用
 
-1. 从 [GitHub Releases](https://github.com/huladabang/luci-app-device-gateway/releases/latest) 下载 `.ipk`。支持 `opkg` 的固件可在软件包页面上传安装，或将安装包放进路由器的 `/tmp` 后执行：
+1. 从 [GitHub Releases](https://github.com/r3zound/luci-app-device-gateway/releases/latest) 下载与你的系统匹配的 `.apk` 或 `.ipk`。支持 `opkg` 的固件可在软件包页面上传安装，或将 IPK 放进路由器的 `/tmp` 后执行：
 
    ```sh
-   opkg install /tmp/luci-app-device-gateway_1.0.0-r1_all.ipk
+   opkg install /tmp/luci-app-device-gateway_1.0.1-1_all.ipk
    ```
 
 2. 打开「网络 → 指定网关」。需要旁路由时，点击网关预设表格里的「添加」，填好名称和 IPv4 地址，再点「添加网关」。设备规则也可直接选择默认网关。
@@ -69,14 +69,14 @@ opkg install /tmp/luci-app-device-gateway_*.ipk
 
 ## 兼容性
 
-| 系统 | v1.0.0 支持情况 |
+| 系统 | v1.0.1 支持情况 |
 | --- | --- |
 | ImmortalWrt 24.10-SNAPSHOT + LuCI 24.10 | **已实测。** TP-Link TL-7DR7299 的 r20 功能验证通过，正式版沿用相同的运行文件。 |
 | 官方 OpenWrt 24.10 / 同分支衍生固件 | **可试用。** [上游 dnsmasq 启动脚本](https://github.com/openwrt/openwrt/blob/openwrt-24.10/package/network/services/dnsmasq/files/dnsmasq.init)支持所用的标签配置，其他机型和固件尚未实测。 |
 | OpenWrt 23.05 / 22.03 | **待验证。** [23.05](https://github.com/openwrt/openwrt/blob/openwrt-23.05/package/network/services/dnsmasq/files/dnsmasq.init) 和 [22.03](https://github.com/openwrt/openwrt/blob/openwrt-22.03/package/network/services/dnsmasq/files/dnsmasq.init) 都有 DHCP 标签支持，LuCI 页面、应用流程和实际下发仍需联测。 |
 | 官方 OpenWrt 25.12 | **支持 APK 构建。** 使用仓库中的 GitHub Actions 工作流，基于官方 `openwrt-25.12` 源码生成 APK；不能把旧 IPK 直接改名为 APK。 [官方发布说明](https://github.com/openwrt/openwrt/releases/tag/v25.12.0) |
 
-发布的 IPK 架构为 `all`，包含 LuCI 页面和脚本。试用其他固件时，需要 LuCI、`opkg`，并由本机 dnsmasq 提供 DHCPv4。同步脚本还需要 `flock`，v1.0.0 的包未声明这一依赖，精简固件可以先用 `command -v flock` 确认。
+发布的 IPK 架构为 `all`，包含 LuCI 页面和脚本。试用其他固件时，需要 LuCI、`opkg`，并由本机 dnsmasq 提供 DHCPv4。同步脚本需要 `flock`，包元数据已声明这一依赖；精简固件如果软件源没有该包，请先安装 `flock`。
 
 ## 实现原理
 
