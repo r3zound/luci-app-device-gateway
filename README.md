@@ -1,5 +1,31 @@
 # 指定网关 · luci-app-device-gateway
 
+[![OpenWrt 25.12 APK](https://img.shields.io/badge/OpenWrt%2025.12-APK%20%E7%9B%B4%E6%8E%A5%E4%B8%8B%E8%BD%BD-2ea44f?logo=openwrt&logoColor=white)](https://github.com/r3zound/luci-app-device-gateway/releases/latest)
+[![OpenWrt 24.10 IPK](https://img.shields.io/badge/OpenWrt%2024.10-IPK%20%E7%9B%B4%E6%8E%A5%E4%B8%8B%E8%BD%BD-8250df?logo=openwrt&logoColor=white)](https://github.com/r3zound/luci-app-device-gateway/releases/latest)
+
+## 直接下载
+
+| 系统 | 安装包 | 下载入口 |
+| --- | --- | --- |
+| **OpenWrt 25.12** | **APK** | [下载最新 APK](https://github.com/r3zound/luci-app-device-gateway/releases/latest) |
+| OpenWrt / ImmortalWrt 24.10 及兼容版本 | IPK | [下载最新 IPK](https://github.com/r3zound/luci-app-device-gateway/releases/latest) |
+
+打开上面的 GitHub Release 页面，下载与你的系统匹配的安装包即可。25.12 请下载 `.apk`，旧版 `opkg` 系统请下载 `.ipk`；不要把 `.ipk` 改名为 `.apk`。
+
+在 OpenWrt 25.12 上安装：
+
+```sh
+apk add /tmp/luci-app-device-gateway_*.apk
+```
+
+在使用 `opkg` 的 OpenWrt / ImmortalWrt 版本上安装：
+
+```sh
+opkg install /tmp/luci-app-device-gateway_*.ipk
+```
+
+在 LuCI 中打开「网络 → 指定网关」即可使用。
+
 在 OpenWrt / ImmortalWrt 的 LuCI 中，按设备分配固定 IPv4、默认网关和 DNS。设备规则直接在「网络 → 指定网关」里编辑，插件负责维护 dnsmasq 的 DHCP 标签。
 
 ## 为什么做这个插件
